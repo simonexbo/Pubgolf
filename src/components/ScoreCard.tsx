@@ -133,12 +133,6 @@ export default function ScoreCard() {
             </button>
           )}
         </div>
-        <div className="text-xs text-gray-500 text-center">
-          {hasLoggedInTeamScored()
-            ? `${loggedInTeam.name} har redan registrerat poäng för ${currentBar.name}`
-            : `${loggedInTeam.name} kan registrera poäng för ${currentBar.name}`
-          }
-        </div>
       </div>
     </div>
   );

@@ -25,11 +25,11 @@ export default function TeamLogin() {
 
   if (loggedInTeam) {
     return (
-      <div className="p-4 bg-white rounded-lg shadow">
-        <h2 className="text-xl font-bold mb-2">Inloggad som {loggedInTeam.name}</h2>
+      <div className="fixed bottom-0 left-0 w-full flex items-center justify-center py-2 bg-transparent z-50">
+        <span className="text-xs text-gray-500 mr-2">Inloggad som <span className="font-semibold">{loggedInTeam.name}</span></span>
         <button
           onClick={logoutTeam}
-          className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
+          className="text-xs text-gray-400 underline hover:text-iosblue px-1 py-0 border-none bg-transparent cursor-pointer"
         >
           Logga ut
         </button>
