@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+html, body {
+  @apply font-sans bg-iosgray-light text-gray-900;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+* {
+  transition: background 0.2s, color 0.2s, box-shadow 0.2s;
+} 
