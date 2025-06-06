@@ -11,6 +11,7 @@ export default function GameSetup() {
   const [player2Name, setPlayer2Name] = useState('');
   const [barName, setBarName] = useState('');
   const [barLocation, setBarLocation] = useState('');
+  const [barDrink, setBarDrink] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -84,7 +85,8 @@ export default function GameSetup() {
       id: crypto.randomUUID(),
       name: barName,
       location: barLocation,
-      teamId: null
+      teamId: null,
+      drink: barDrink
     };
 
     try {
@@ -92,6 +94,7 @@ export default function GameSetup() {
       // Clear form
       setBarName('');
       setBarLocation('');
+      setBarDrink('');
     } catch (error) {
       console.error('Error adding bar:', error);
       setError('Kunde inte lägga till baren. Försök igen.');
@@ -242,6 +245,20 @@ export default function GameSetup() {
                 onChange={(e) => setBarLocation(e.target.value)}
                 className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
                 required
+              />
+            </div>
+
+            <div>
+              <label htmlFor="barDrink" className="block text-sm font-medium text-gray-700">
+                Dryck
+              </label>
+              <input
+                type="text"
+                id="barDrink"
+                value={barDrink}
+                onChange={(e) => setBarDrink(e.target.value)}
+                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                placeholder="t.ex. Ljus lager, IPA, Cider..."
               />
             </div>
 

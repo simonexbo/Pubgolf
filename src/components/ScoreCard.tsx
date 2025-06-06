@@ -118,20 +118,29 @@ export default function ScoreCard() {
 
   return (
     <div className="bg-white rounded-ios shadow-ios p-6 max-w-md mx-auto">
-      <h2 className="text-lg font-semibold mb-4 text-center text-gray-900 tracking-tight">Poänginmatning</h2>
+      <h2 className="text-lg font-semibold mb-1 text-center text-gray-900 tracking-tight">Poänginmatning</h2>
+      <p className="text-sm text-gray-500 text-center mb-4">Omgång {currentGame.currentRound}</p>
       <div className="space-y-4">
         {success && (
           <div className="p-2 bg-green-50 text-green-700 rounded-ios text-center border border-green-200">Poäng sparad! Går vidare till nästa omgång...</div>
         )}
-        <div className="p-4 bg-iosgray-light rounded-ios border border-iosgray flex flex-col items-center">
-          <h3 className="font-medium text-iosblue">Nuvarande Bar</h3>
-          <p className="text-base font-semibold text-gray-900">{currentBar.name}</p>
-          {/* <p className="text-xs text-iosblue">{currentBar.location}</p> */}
-          <span className="text-xs text-gray-500 mt-1">Omgång {currentGame.currentRound}</span>
-        </div>
-        <div className="p-4 bg-iosgray-light rounded-ios border border-iosgray flex flex-col items-center">
-          <h3 className="font-medium text-yellow-700">Motståndarlag</h3>
-          <p className="text-base font-semibold text-gray-900">{opponentTeam?.name}</p>
+        <div className="p-4 bg-iosgray-light rounded-ios border border-iosgray text-center">
+          <div className="space-y-2 flex flex-col items-center">
+            <div>
+              <span className="text-sm font-medium text-gray-600">Bar:</span>
+              <p className="text-base font-semibold text-gray-900">{currentBar.name}</p>
+            </div>
+            {currentBar.drink && (
+              <div>
+                <span className="text-sm font-medium text-gray-600">Dryck:</span>
+                <p className="text-base font-semibold text-gray-900">{currentBar.drink}</p>
+              </div>
+            )}
+            <div>
+              <span className="text-sm font-medium text-gray-600">Motståndare:</span>
+              <p className="text-base font-semibold text-gray-900">{opponentTeam?.name}</p>
+            </div>
+          </div>
         </div>
         <div className="flex flex-col items-center space-y-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">Tid till motståndarlaget</label>

@@ -95,55 +95,64 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
         id: crypto.randomUUID(),
         name: "Ölkafeet",
         location: "Hål 1",
-        teamId: null
+        teamId: null,
+        drink: "Lager"
       },
       {
         id: crypto.randomUUID(),
         name: "Old Nobes",
         location: "Hål 2",
-        teamId: null
+        teamId: null,
+        drink: "IPA"
       },
       {
         id: crypto.randomUUID(),
         name: "Far i hatten",
         location: "Hål 3",
-        teamId: null
+        teamId: null,
+        drink: "Valfritt"
       },
       {
         id: crypto.randomUUID(),
         name: "Mikkeller",
         location: "Hål 4",
-        teamId: null
+        teamId: null,
+        drink: "APA"
       },
       {
         id: crypto.randomUUID(),
         name: "TapRoom",
         location: "Hål 5",
-        teamId: null
+        teamId: null,
+        drink: "Sour"
       },
       {
         id: crypto.randomUUID(),
         name: "Kröl",
         location: "Hål 6",
-        teamId: null
+        teamId: null,
+        drink: "Pilsner"
       },
       {
         id: crypto.randomUUID(),
         name: "Nyhavn",
         location: "Hål 7",
-        teamId: null
+        teamId: null,
+        drink: "Hoegaarden"
       },
       {
         id: crypto.randomUUID(),
         name: "Pivo",
         location: "Hål 8",
-        teamId: null
+        teamId: null,
+        drink: "Utnetiecke"
       },
       {
         id: crypto.randomUUID(),
         name: "Opopoppa",
         location: "Hål 9",
-        teamId: null
+        teamId: null,
+        drink: "Baren tipsar"
       }
     ];
 

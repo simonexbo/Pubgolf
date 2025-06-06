@@ -35,6 +35,7 @@ export interface Bar {
   name: string;
   location: string;
   teamId: string | null;
+  drink?: string;
 }
 
 export interface Game {
