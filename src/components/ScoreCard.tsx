@@ -9,7 +9,23 @@ export default function ScoreCard() {
   const [success, setSuccess] = useState(false);
   const [timer, setTimer] = useState(0); // hundradelar
   const [isRunning, setIsRunning] = useState(false);
+  const [spillActive, setSpillActive] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Bonus/avdrag-alternativ
+  const adjustments = [
+    { key: 'spill', label: 'Spill', value: 200 },
+    { key: 'felBestallning', label: 'Fel beställning', value: 300 },
+    { key: 'toalett', label: 'Toalett', value: 200 },
+    { key: 'jagerbomb', label: 'Jägerbomb', value: -200 },
+    { key: 'perfektTeknik', label: 'Perfekt teknik', value: -100 },
+    { key: 'publikjubel', label: 'Publikjubel', value: -50 },
+  ];
+  const [activeAdjustments, setActiveAdjustments] = useState<string[]>([]);
+
+  const totalAdjustment = adjustments
+    .filter(adj => activeAdjustments.includes(adj.key))
+    .reduce((sum, adj) => sum + adj.value, 0);
 
   if (!currentGame || !loggedInTeam) return null;
 
@@ -68,18 +84,25 @@ export default function ScoreCard() {
   const handleAddScore = async () => {
     if (timer === 0) return;
 
+    const adjustedTimer = timer + totalAdjustment;
+
     const newScore = {
       id: crypto.randomUUID(),
       playerId: opponentTeam.players[0].id, // motståndarens första spelare
       teamId: opponentTeam.id,              // motståndarlaget
-      score: timer, // antal hundradelar
+      score: adjustedTimer, // antal hundradelar
       holeNumber: currentGame.currentRound,
-      submittedByTeamId: loggedInTeam.id
+      submittedByTeamId: loggedInTeam.id,
+      ...(activeAdjustments.length > 0 ? {
+        bonuses: activeAdjustments,
+        adjustment: totalAdjustment
+      } : {})
     };
 
     try {
       await addScore(newScore);
       resetTimer();
+      setActiveAdjustments([]);
       setSuccess(true);
       setTimeout(() => {
         setSuccess(false);
@@ -112,7 +135,25 @@ export default function ScoreCard() {
         </div>
         <div className="flex flex-col items-center space-y-2">
           <label className="block text-xs font-medium text-gray-700 mb-1">Tid till motståndarlaget</label>
-          <div className="text-3xl font-mono tracking-widest mb-2">{formatTime(timer)}</div>
+          <div className="text-3xl font-mono tracking-widest mb-2">{formatTime(timer + totalAdjustment)}</div>
+          <div className="flex flex-wrap justify-center gap-2 mb-2">
+            {adjustments.map(adj => (
+              <button
+                key={adj.key}
+                type="button"
+                onClick={() => setActiveAdjustments(prev => prev.includes(adj.key)
+                  ? prev.filter(k => k !== adj.key)
+                  : [...prev, adj.key])}
+                className={`px-3 py-1 rounded-ios border text-xs font-semibold transition
+                  ${activeAdjustments.includes(adj.key)
+                    ? (adj.value > 0 ? 'bg-red-100 border-red-400 text-red-700' : 'bg-green-100 border-green-400 text-green-700')
+                    : 'bg-iosgray-light border-iosgray text-gray-700 hover:bg-gray-100 hover:border-gray-400'}
+                `}
+              >
+                {adj.label} {adj.value > 0 ? `(+${adj.value / 100} sek)` : `(${adj.value / 100} sek)`}
+              </button>
+            ))}
+          </div>
           <button
             type="button"
             onClick={() => {
@@ -129,7 +170,7 @@ export default function ScoreCard() {
               onClick={handleAddScore}
               className="w-full bg-green-500 text-white py-2 px-4 rounded-ios font-semibold shadow-ios hover:bg-green-600 focus:outline-none focus:ring-2 focus:ring-green-400 focus:ring-offset-2 transition"
             >
-              Lägg till motståndarens poäng ({formatTime(timer)})
+              Lägg till motståndarens poäng ({formatTime(timer + totalAdjustment)})
             </button>
           )}
         </div>
