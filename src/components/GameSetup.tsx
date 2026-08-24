@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useGame } from '@/context/GameContext';
 import { Team, Bar } from '@/types/game';
+import AdminRulesEditor from '@/components/AdminRulesEditor';
 
 export default function GameSetup() {
   const { currentGame, createGame, addTeam, addBar, startGame } = useGame();
@@ -12,26 +13,21 @@ export default function GameSetup() {
   const [barName, setBarName] = useState('');
   const [barLocation, setBarLocation] = useState('');
   const [barDrink, setBarDrink] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Skapa spel en gång när komponenten laddas
-  useEffect(() => {
-    const initializeGame = async () => {
-      if (!currentGame) {
-        try {
-          const gameId = await createGame();
-          console.log('Created new game with ID:', gameId);
-        } catch (error) {
-          console.error('Error creating game:', error);
-          setError('Kunde inte skapa spelet. Vänligen uppdatera sidan.');
-        }
-      }
-      setIsLoading(false);
-    };
-
-    initializeGame();
-  }, []);
+  const handleCreateGame = async () => {
+    setError(null);
+    setIsCreating(true);
+    try {
+      await createGame();
+    } catch (error) {
+      console.error('Error creating game:', error);
+      setError('Kunde inte skapa spelet. Försök igen.');
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const handleAddTeam = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -122,18 +118,22 @@ export default function GameSetup() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <p>Laddar spel...</p>
-      </div>
-    );
-  }
-
   if (!currentGame) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
-        <p>Kunde inte ladda spelet. Vänligen uppdatera sidan.</p>
+      <div className="bg-white rounded-lg shadow p-6 text-center">
+        {error && (
+          <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+            {error}
+          </div>
+        )}
+        <p className="mb-4 text-gray-600">Inget aktivt spel just nu.</p>
+        <button
+          onClick={handleCreateGame}
+          disabled={isCreating}
+          className="bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 disabled:opacity-50"
+        >
+          {isCreating ? 'Skapar spel...' : 'Skapa nytt spel'}
+        </button>
       </div>
     );
   }
@@ -151,14 +151,7 @@ export default function GameSetup() {
         </div>
       )}
       
-      {/* Debug display */}
-      <div className="mb-4 p-2 bg-gray-100 rounded">
-        <p>Status: {currentGame.status}</p>
-        <p>Spel-ID: {currentGame.id}</p>
-        <p>Datum: {new Date(currentGame.date).toLocaleDateString()}</p>
-        <p>Antal lag: {teams.length}</p>
-        <p>Antal barer: {bars.length}</p>
-      </div>
+      <p className="text-sm text-gray-500 mb-4">Spel-ID: {currentGame.id}</p>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Team Form */}
@@ -271,6 +264,8 @@ export default function GameSetup() {
           </form>
         </div>
       </div>
+
+      <AdminRulesEditor />
 
       {/* Start Game Button */}
       {teams.length >= 2 && bars.length > 0 && (

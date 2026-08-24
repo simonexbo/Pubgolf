@@ -2,6 +2,8 @@
 
 import { useState, useRef } from 'react';
 import { useGame } from '@/context/GameContext';
+import { AdjustmentRule } from '@/types/game';
+import { DEFAULT_ADJUSTMENTS } from '@/utils/defaultAdjustments';
 
 export default function ScoreCard() {
   const { currentGame, loggedInTeam, addScore } = useGame();
@@ -11,23 +13,19 @@ export default function ScoreCard() {
   const [isRunning, setIsRunning] = useState(false);
   const [spillActive, setSpillActive] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Bonus/avdrag-alternativ
-  const adjustments = [
-    { key: 'spill', label: 'Spill', value: 200 },
-    { key: 'felBestallning', label: 'Fel beställning', value: 300 },
-    { key: 'toalett', label: 'Toalett', value: 200 },
-    { key: 'jagerbomb', label: 'Jägerbomb', value: -200 },
-    { key: 'perfektTeknik', label: 'Perfekt teknik', value: -100 },
-    { key: 'publikjubel', label: 'Publikjubel', value: -50 },
-  ];
   const [activeAdjustments, setActiveAdjustments] = useState<string[]>([]);
+
+  if (!currentGame || !loggedInTeam) return null;
+
+  // Bonus/avdrag-alternativ, konfigurerade av admin per spel
+  const adjustments: AdjustmentRule[] =
+    currentGame.adjustmentRules && currentGame.adjustmentRules.length > 0
+      ? currentGame.adjustmentRules
+      : DEFAULT_ADJUSTMENTS;
 
   const totalAdjustment = adjustments
     .filter(adj => activeAdjustments.includes(adj.key))
     .reduce((sum, adj) => sum + adj.value, 0);
-
-  if (!currentGame || !loggedInTeam) return null;
 
   // Hitta den aktuella matchen för det inloggade laget
   const currentMatch = currentGame.matches.find(match => 

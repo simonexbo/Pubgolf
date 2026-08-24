@@ -38,6 +38,12 @@ export interface Bar {
   drink?: string;
 }
 
+export interface AdjustmentRule {
+  key: string;
+  label: string;
+  value: number; // hundradels sekunder; positivt = tidstillägg, negativt = avdrag
+}
+
 export interface Game {
   id: string;
   date: string;
@@ -46,6 +52,8 @@ export interface Game {
   bars: Bar[];
   status: 'pending' | 'active' | 'completed';
   currentRound: number;
+  adjustmentRules?: AdjustmentRule[];
+  totalRounds?: number;
 }
 
 export interface Hole {

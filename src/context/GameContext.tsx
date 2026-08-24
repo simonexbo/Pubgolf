@@ -1,11 +1,14 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Game, Team, Score, Bar } from '@/types/game';
+import { Game, Team, Score, Bar, AdjustmentRule } from '@/types/game';
 import { database } from '@/lib/firebase';
 import { ref, set, onValue, push, update } from 'firebase/database';
 import { useRouter } from 'next/navigation';
-import { generateFixedMatches } from '@/utils/fixedMatchGenerator';
+import { generateMatches } from '@/utils/matchGenerator';
+import { DEFAULT_ADJUSTMENTS } from '@/utils/defaultAdjustments';
+
+const ACTIVE_GAME_KEY = 'pubgolf_active_game_id';
 
 interface GameContextType {
   currentGame: Game | null;
@@ -14,6 +17,8 @@ interface GameContextType {
   addTeam: (team: Team) => Promise<void>;
   addScore: (score: Score) => Promise<void>;
   addBar: (bar: Bar) => Promise<void>;
+  updateAdjustmentRules: (rules: AdjustmentRule[]) => Promise<void>;
+  updateTotalRounds: (totalRounds: number) => Promise<void>;
   startGame: () => Promise<void>;
   getLeaderboard: () => Array<{ team: Team; totalScore: number }>;
   loginTeam: (accessCode: string) => Team | null;
@@ -26,149 +31,46 @@ const GameContext = createContext<GameContextType | undefined>(undefined);
 export function GameProvider({ children }: { children: React.ReactNode }) {
   const [currentGame, setCurrentGame] = useState<Game | null>(null);
   const [loggedInTeam, setLoggedInTeam] = useState<Team | null>(null);
+  const [watchedGameId, setWatchedGameId] = useState<string | null>(null);
   const router = useRouter();
+
+  // Återställ persisterat spel-ID vid mount
+  useEffect(() => {
+    const savedId = localStorage.getItem(ACTIVE_GAME_KEY);
+    if (savedId) setWatchedGameId(savedId);
+  }, []);
 
   // Lyssna på realtidsuppdateringar för spelet
   useEffect(() => {
-    if (currentGame?.id) {
-      const gameRef = ref(database, `games/${currentGame.id}`);
-      const unsubscribe = onValue(gameRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          setCurrentGame({
-            ...data,
-            date: new Date(data.date)
-          });
-        }
-      });
+    if (!watchedGameId) return;
 
-      return () => unsubscribe();
-    }
-  }, [currentGame?.id]);
+    const gameRef = ref(database, `games/${watchedGameId}`);
+    const unsubscribe = onValue(gameRef, (snapshot) => {
+      const data = snapshot.val();
+      setCurrentGame(data ? { ...data, date: new Date(data.date) } : null);
+    });
+
+    return () => unsubscribe();
+  }, [watchedGameId]);
 
   const createGame = async (): Promise<string> => {
     const gameId = `GOLF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-    
-    // Standardlag
-    const defaultTeams: Team[] = [
-      {
-        id: crypto.randomUUID(),
-        name: "Karamellkungarna",
-        accessCode: "ALPHA1",
-        players: [
-          { id: crypto.randomUUID(), name: "Simon", handicap: 10 },
-          { id: crypto.randomUUID(), name: "Adam", handicap: 12 }
-        ]
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "BullBear",
-        accessCode: "BETA1",
-        players: [
-          { id: crypto.randomUUID(), name: "Axel", handicap: 8 },
-          { id: crypto.randomUUID(), name: "Pascal", handicap: 15 }
-        ]
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Tjänstebil",
-        accessCode: "TETA1",
-        players: [
-          { id: crypto.randomUUID(), name: "Emil", handicap: 8 },
-          { id: crypto.randomUUID(), name: "Axel", handicap: 15 }
-        ]
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Nordöst",
-        accessCode: "FETA1",
-        players: [
-          { id: crypto.randomUUID(), name: "Ludvig", handicap: 8 },
-          { id: crypto.randomUUID(), name: "Joseph", handicap: 15 }
-        ]
-      }
-    ];
-
-    // Standardbarer
-    const defaultBars: Bar[] = [
-      {
-        id: crypto.randomUUID(),
-        name: "Ölkafeet",
-        location: "Hål 1",
-        teamId: null,
-        drink: "Lager"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Old Nobes",
-        location: "Hål 2",
-        teamId: null,
-        drink: "IPA"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Far i hatten",
-        location: "Hål 3",
-        teamId: null,
-        drink: "Valfritt"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Mikkeller",
-        location: "Hål 4",
-        teamId: null,
-        drink: "APA"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "TapRoom",
-        location: "Hål 5",
-        teamId: null,
-        drink: "Sour"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Kröl",
-        location: "Hål 6",
-        teamId: null,
-        drink: "Pilsner"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Nyhavn",
-        location: "Hål 7",
-        teamId: null,
-        drink: "Hoegaarden"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Pivo",
-        location: "Hål 8",
-        teamId: null,
-        drink: "Utnetiecke"
-      },
-      {
-        id: crypto.randomUUID(),
-        name: "Opopoppa",
-        location: "Hål 9",
-        teamId: null,
-        drink: "Baren tipsar"
-      }
-    ];
 
     const newGame: Game = {
       id: gameId,
       date: new Date().toISOString(),
-      teams: defaultTeams,
+      teams: [],
       matches: [],
-      bars: defaultBars,
+      bars: [],
       status: 'pending',
-      currentRound: 1
+      currentRound: 1,
+      adjustmentRules: DEFAULT_ADJUSTMENTS
     };
 
     try {
       await set(ref(database, `games/${gameId}`), newGame);
-      setCurrentGame(newGame);
+      localStorage.setItem(ACTIVE_GAME_KEY, gameId);
+      setWatchedGameId(gameId);
       return gameId;
     } catch (error) {
       console.error('Error creating game:', error);
@@ -240,36 +142,52 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const updateAdjustmentRules = async (rules: AdjustmentRule[]) => {
+    if (!currentGame) return;
+
+    const gameRef = ref(database, `games/${currentGame.id}`);
+
+    try {
+      await update(gameRef, { adjustmentRules: rules });
+    } catch (error) {
+      console.error('Error updating adjustment rules:', error);
+      throw error;
+    }
+  };
+
+  const updateTotalRounds = async (totalRounds: number) => {
+    if (!currentGame) return;
+
+    const gameRef = ref(database, `games/${currentGame.id}`);
+
+    try {
+      await update(gameRef, { totalRounds });
+    } catch (error) {
+      console.error('Error updating total rounds:', error);
+      throw error;
+    }
+  };
+
   const startGame = async () => {
     if (!currentGame || currentGame.teams.length < 2) return;
-    
+
     const gameRef = ref(database, `games/${currentGame.id}`);
-    
-    // Använd antalet barer som användaren har skapat
-    const matches = generateFixedMatches(currentGame.teams, currentGame.bars);
-    
-    await update(gameRef, { 
+
+    const matches = generateMatches(currentGame.teams, currentGame.bars, currentGame.totalRounds);
+
+    await update(gameRef, {
       status: 'active',
       matches,
-      bars: currentGame.bars,
       currentRound: 1
     });
-    
+
     // Omdirigera till spelsidan
     router.push(`/game/${currentGame.id}`);
   };
 
   const joinGame = async (gameId: string) => {
-    const gameRef = ref(database, `games/${gameId}`);
-    const snapshot = await onValue(gameRef, (snapshot) => {
-      const data = snapshot.val();
-      if (data) {
-        setCurrentGame({
-          ...data,
-          date: new Date(data.date)
-        });
-      }
-    });
+    localStorage.setItem(ACTIVE_GAME_KEY, gameId);
+    setWatchedGameId(gameId);
   };
 
   const getLeaderboard = () => {
@@ -306,6 +224,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addTeam,
       addScore,
       addBar,
+      updateAdjustmentRules,
+      updateTotalRounds,
       startGame,
       getLeaderboard,
       loginTeam,

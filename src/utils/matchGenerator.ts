@@ -1,21 +1,10 @@
-import { Team } from '@/types/game';
+import { Team, Bar, Match } from '@/types/game';
 
-export function generateMatches(teams: Team[], rounds: number): Array<{
-  id: string;
-  round: number;
-  team1Id: string;
-  team2Id: string;
-  scores: any[];
-}> {
-  if (teams.length < 2) return [];
+export function generateMatches(teams: Team[], bars: Bar[], rounds?: number): Match[] {
+  if (teams.length < 2 || bars.length === 0) return [];
 
-  const matches: Array<{
-    id: string;
-    round: number;
-    team1Id: string;
-    team2Id: string;
-    scores: any[];
-  }> = [];
+  const totalRounds = rounds && rounds > 0 ? rounds : bars.length;
+  const matches: Match[] = [];
 
   // Skapa en kopia av lagen för att hålla reda på vilka som spelat mot varandra
   const teamHistory: { [key: string]: string[] } = {};
@@ -24,9 +13,10 @@ export function generateMatches(teams: Team[], rounds: number): Array<{
   });
 
   // För varje runda
-  for (let round = 1; round <= rounds; round++) {
+  for (let round = 1; round <= totalRounds; round++) {
+    const bar = bars[(round - 1) % bars.length];
     const availableTeams = [...teams];
-    const roundMatches: string[] = [];
+    let matchNumber = 1;
 
     // Medan det finns tillgängliga lag
     while (availableTeams.length >= 2) {
@@ -42,7 +32,7 @@ export function generateMatches(teams: Team[], rounds: number): Array<{
       for (let i = 0; i < availableTeams.length; i++) {
         const opponent = availableTeams[i];
         const recentMatches = teamHistory[team1.id].filter(id => id === opponent.id).length;
-        
+
         if (recentMatches < minRecentMatches) {
           minRecentMatches = recentMatches;
           bestOpponent = opponent;
@@ -57,8 +47,10 @@ export function generateMatches(teams: Team[], rounds: number): Array<{
       matches.push({
         id: crypto.randomUUID(),
         round,
+        matchNumber: matchNumber++,
         team1Id: team1.id,
         team2Id: bestOpponent.id,
+        barId: bar.id,
         scores: []
       });
 
@@ -69,4 +61,4 @@ export function generateMatches(teams: Team[], rounds: number): Array<{
   }
 
   return matches;
-} 
+}
