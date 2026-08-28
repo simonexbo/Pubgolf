@@ -4,9 +4,9 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { Game, Team, Score, Bar, AdjustmentRule, Player } from '@/types/game';
 import { database } from '@/lib/firebase';
 import { ref, set, onValue, push, update, remove } from 'firebase/database';
-import { useRouter } from 'next/navigation';
 import { generateMatches } from '@/utils/matchGenerator';
 import { DEFAULT_ADJUSTMENTS } from '@/utils/defaultAdjustments';
+import { getDeviceTeamId, setDeviceTeamId, clearDeviceTeamId } from '@/utils/deviceTeam';
 
 const ACTIVE_GAME_KEY = 'pubgolf_active_game_id';
 
@@ -17,6 +17,8 @@ interface GameContextType {
   addTeam: (team: Team) => Promise<void>;
   addScore: (score: Score) => Promise<void>;
   addBar: (bar: Bar) => Promise<void>;
+  updateBar: (barId: string, updates: Partial<Bar>) => Promise<void>;
+  removeBar: (barId: string) => Promise<void>;
   joinTeam: (teamId: string, playerName: string) => Promise<void>;
   removeTeam: (teamId: string) => Promise<void>;
   deleteGame: () => Promise<void>;
@@ -36,7 +38,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   const [currentGame, setCurrentGame] = useState<Game | null>(null);
   const [loggedInTeam, setLoggedInTeam] = useState<Team | null>(null);
   const [watchedGameId, setWatchedGameId] = useState<string | null>(null);
-  const router = useRouter();
 
   // Återställ persisterat spel-ID vid mount
   useEffect(() => {
@@ -64,6 +65,18 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
 
     return () => unsubscribe();
   }, [watchedGameId]);
+
+  // Logga in automatiskt om den här enheten redan tillhör ett lag i spelet
+  // (t.ex. har anmält laget via /join-länken), så koden inte behöver skrivas in igen.
+  useEffect(() => {
+    if (!currentGame || loggedInTeam) return;
+
+    const savedTeamId = getDeviceTeamId(currentGame.id);
+    if (!savedTeamId) return;
+
+    const team = currentGame.teams.find(t => t.id === savedTeamId);
+    if (team) setLoggedInTeam(team);
+  }, [currentGame, loggedInTeam]);
 
   const createGame = async (): Promise<string> => {
     const gameId = `GOLF-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -150,6 +163,34 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       await update(gameRef, { bars: updatedBars });
     } catch (error) {
       console.error('Error adding bar:', error);
+      throw error;
+    }
+  };
+
+  const updateBar = async (barId: string, updates: Partial<Bar>) => {
+    if (!currentGame) return;
+
+    const updatedBars = currentGame.bars.map(b => (b.id === barId ? { ...b, ...updates } : b));
+    const gameRef = ref(database, `games/${currentGame.id}`);
+
+    try {
+      await update(gameRef, { bars: updatedBars });
+    } catch (error) {
+      console.error('Error updating bar:', error);
+      throw error;
+    }
+  };
+
+  const removeBar = async (barId: string) => {
+    if (!currentGame) return;
+
+    const updatedBars = currentGame.bars.filter(b => b.id !== barId);
+    const gameRef = ref(database, `games/${currentGame.id}`);
+
+    try {
+      await update(gameRef, { bars: updatedBars });
+    } catch (error) {
+      console.error('Error removing bar:', error);
       throw error;
     }
   };
@@ -259,9 +300,6 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       matches,
       currentRound: 1
     });
-
-    // Omdirigera till spelsidan
-    router.push(`/game/${currentGame.id}`);
   };
 
   const joinGame = async (gameId: string) => {
@@ -287,11 +325,13 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const team = currentGame.teams.find(t => t.accessCode === accessCode);
     if (team) {
       setLoggedInTeam(team);
+      setDeviceTeamId(currentGame.id, team.id);
     }
     return team || null;
   };
 
   const logoutTeam = () => {
+    if (currentGame) clearDeviceTeamId(currentGame.id);
     setLoggedInTeam(null);
   };
 
@@ -303,6 +343,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addTeam,
       addScore,
       addBar,
+      updateBar,
+      removeBar,
       joinTeam,
       removeTeam,
       deleteGame,

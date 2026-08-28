@@ -8,7 +8,7 @@ import AdminEventInfoEditor from '@/components/AdminEventInfoEditor';
 import AdminInvite from '@/components/AdminInvite';
 
 export default function GameSetup() {
-  const { currentGame, createGame, addBar, startGame, removeTeam, deleteGame } = useGame();
+  const { currentGame, createGame, addBar, updateBar, removeBar, startGame, removeTeam, deleteGame } = useGame();
   const [barName, setBarName] = useState('');
   const [barLocation, setBarLocation] = useState('');
   const [barDrink, setBarDrink] = useState('');
@@ -69,6 +69,27 @@ export default function GameSetup() {
     } catch (error) {
       console.error('Error deleting game:', error);
       setError('Kunde inte ta bort spelet. Försök igen.');
+    }
+  };
+
+  const handleUpdateBar = async (barId: string, updates: Partial<Bar>) => {
+    try {
+      await updateBar(barId, updates);
+    } catch (error) {
+      console.error('Error updating bar:', error);
+      setError('Kunde inte uppdatera baren. Försök igen.');
+    }
+  };
+
+  const handleRemoveBar = async (barId: string, barName: string) => {
+    const confirmed = window.confirm(`Ta bort baren "${barName}"?`);
+    if (!confirmed) return;
+
+    try {
+      await removeBar(barId);
+    } catch (error) {
+      console.error('Error removing bar:', error);
+      setError('Kunde inte ta bort baren. Försök igen.');
     }
   };
 
@@ -151,6 +172,14 @@ export default function GameSetup() {
         </button>
       </div>
 
+      {currentGame.status === 'active' && (
+        <p className="text-sm mb-4">
+          <a href={`/game/${currentGame.id}`} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:text-blue-800 underline">
+            Visa spelvyn ↗
+          </a>
+        </p>
+      )}
+
       <AdminEventInfoEditor />
       <AdminInvite />
 
@@ -213,20 +242,34 @@ export default function GameSetup() {
 
       <AdminRulesEditor />
 
-      {/* Start Game Button */}
-      {waitingTeams.length > 0 && (
-        <p className="text-sm text-amber-600 mt-8">
-          {waitingTeams.length} lag väntar på en till spelare innan spelet kan starta.
-        </p>
+      {/* Start Game Button / Status */}
+      {currentGame.status === 'pending' && (
+        <>
+          {waitingTeams.length > 0 && (
+            <p className="text-sm text-amber-600 mt-8">
+              {waitingTeams.length} lag väntar på en till spelare innan spelet kan starta.
+            </p>
+          )}
+          {fullTeams.length >= 2 && bars.length > 0 && (
+            <div className="mt-4">
+              <button
+                onClick={handleStartGame}
+                className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-lg font-semibold"
+              >
+                Starta Spel
+              </button>
+            </div>
+          )}
+        </>
       )}
-      {fullTeams.length >= 2 && bars.length > 0 && (
-        <div className="mt-4">
-          <button
-            onClick={handleStartGame}
-            className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-lg font-semibold"
-          >
-            Starta Spel
-          </button>
+      {currentGame.status === 'active' && (
+        <div className="mt-8 p-3 bg-green-50 border border-green-200 rounded-md text-green-800 text-center font-semibold">
+          ✅ Spelet är igång
+        </div>
+      )}
+      {currentGame.status === 'completed' && (
+        <div className="mt-8 p-3 bg-gray-100 border border-gray-300 rounded-md text-gray-700 text-center font-semibold">
+          Spelet är avslutat
         </div>
       )}
 
@@ -276,8 +319,41 @@ export default function GameSetup() {
                 <div className="space-y-4">
                   {bars.map((bar) => (
                     <div key={bar.id} className="border rounded-lg p-4">
-                      <h4 className="font-semibold text-lg">{bar.name}</h4>
-                      <p className="text-sm text-gray-600">Plats: {bar.location}</p>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <input
+                          type="text"
+                          defaultValue={bar.name}
+                          onBlur={(e) => handleUpdateBar(bar.id, { name: e.target.value })}
+                          className="font-semibold text-lg border border-transparent hover:border-gray-300 focus:border-blue-500 focus:outline-none rounded px-1 -mx-1 bg-transparent flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveBar(bar.id, bar.name)}
+                          className="text-xs text-red-500 hover:text-red-700 whitespace-nowrap"
+                        >
+                          Ta bort
+                        </button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <label className="block text-xs text-gray-500">Plats</label>
+                          <input
+                            type="text"
+                            defaultValue={bar.location}
+                            onBlur={(e) => handleUpdateBar(bar.id, { location: e.target.value })}
+                            className="w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-xs text-gray-500">Dryck</label>
+                          <input
+                            type="text"
+                            defaultValue={bar.drink ?? ''}
+                            onBlur={(e) => handleUpdateBar(bar.id, { drink: e.target.value })}
+                            className="w-full text-sm rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>

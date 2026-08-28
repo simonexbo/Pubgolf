@@ -2,10 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useGame } from '@/context/GameContext';
-
-function signupKey(gameId: string) {
-  return `pubgolf_signup_${gameId}`;
-}
+import { getDeviceTeamId, setDeviceTeamId } from '@/utils/deviceTeam';
 
 export default function JoinGame() {
   const { currentGame, addTeam, joinTeam } = useGame();
@@ -18,7 +15,7 @@ export default function JoinGame() {
 
   useEffect(() => {
     if (!currentGame) return;
-    const stored = localStorage.getItem(signupKey(currentGame.id));
+    const stored = getDeviceTeamId(currentGame.id);
     if (stored) setMyTeamId(stored);
   }, [currentGame?.id]);
 
@@ -30,24 +27,10 @@ export default function JoinGame() {
     );
   }
 
-  if (currentGame.status !== 'pending') {
-    return (
-      <main className="min-h-screen bg-iosgray-light flex items-center justify-center py-8 px-4">
-        <div className="bg-white rounded-ios shadow-ios p-6 max-w-md w-full text-center">
-          <h1 className="text-lg font-semibold mb-2 text-gray-900">Anmälan är stängd</h1>
-          <p className="text-gray-600 mb-4">Spelet har redan startat.</p>
-          {currentGame.status === 'active' && (
-            <a href={`/game/${currentGame.id}`} className="text-iosblue underline font-medium">
-              Gå till spelet
-            </a>
-          )}
-        </div>
-      </main>
-    );
-  }
-
   const myTeam = myTeamId ? currentGame.teams.find(t => t.id === myTeamId) ?? null : null;
 
+  // Redan anmäld lag ska alltid kunna se sin info/åtkomstkod, oavsett om spelet
+  // har startat eller inte - annars försvinner koden så fort admin startar spelet.
   if (myTeam) {
     return (
       <main className="min-h-screen bg-iosgray-light flex items-center justify-center py-8 px-4">
@@ -72,6 +55,30 @@ export default function JoinGame() {
               <p className="text-2xl font-mono tracking-widest text-gray-900">{myTeam.accessCode}</p>
             </div>
           </div>
+          {currentGame.status === 'active' && (
+            <a
+              href={`/game/${currentGame.id}`}
+              className="block text-center mt-4 text-iosblue underline font-medium"
+            >
+              Gå till spelet
+            </a>
+          )}
+        </div>
+      </main>
+    );
+  }
+
+  if (currentGame.status !== 'pending') {
+    return (
+      <main className="min-h-screen bg-iosgray-light flex items-center justify-center py-8 px-4">
+        <div className="bg-white rounded-ios shadow-ios p-6 max-w-md w-full text-center">
+          <h1 className="text-lg font-semibold mb-2 text-gray-900">Anmälan är stängd</h1>
+          <p className="text-gray-600 mb-4">Spelet har redan startat.</p>
+          {currentGame.status === 'active' && (
+            <a href={`/game/${currentGame.id}`} className="text-iosblue underline font-medium">
+              Gå till spelet
+            </a>
+          )}
         </div>
       </main>
     );
@@ -108,11 +115,11 @@ export default function JoinGame() {
           accessCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
           players: [{ id: crypto.randomUUID(), name: playerName.trim() }]
         });
-        localStorage.setItem(signupKey(currentGame.id), newTeamId);
+        setDeviceTeamId(currentGame.id, newTeamId);
         setMyTeamId(newTeamId);
       } else {
         await joinTeam(selectedTeamId, playerName.trim());
-        localStorage.setItem(signupKey(currentGame.id), selectedTeamId);
+        setDeviceTeamId(currentGame.id, selectedTeamId);
         setMyTeamId(selectedTeamId);
       }
     } catch (err) {
