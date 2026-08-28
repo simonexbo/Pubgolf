@@ -1,9 +1,9 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { Game, Team, Score, Bar, AdjustmentRule } from '@/types/game';
+import { Game, Team, Score, Bar, AdjustmentRule, Player } from '@/types/game';
 import { database } from '@/lib/firebase';
-import { ref, set, onValue, push, update } from 'firebase/database';
+import { ref, set, onValue, push, update, remove } from 'firebase/database';
 import { useRouter } from 'next/navigation';
 import { generateMatches } from '@/utils/matchGenerator';
 import { DEFAULT_ADJUSTMENTS } from '@/utils/defaultAdjustments';
@@ -17,8 +17,12 @@ interface GameContextType {
   addTeam: (team: Team) => Promise<void>;
   addScore: (score: Score) => Promise<void>;
   addBar: (bar: Bar) => Promise<void>;
+  joinTeam: (teamId: string, playerName: string) => Promise<void>;
+  removeTeam: (teamId: string) => Promise<void>;
+  deleteGame: () => Promise<void>;
   updateAdjustmentRules: (rules: AdjustmentRule[]) => Promise<void>;
   updateTotalRounds: (totalRounds: number) => Promise<void>;
+  updateEventInfo: (info: { location: string; eventDate: string; eventTime: string; description: string }) => Promise<void>;
   startGame: () => Promise<void>;
   getLeaderboard: () => Array<{ team: Team; totalScore: number }>;
   loginTeam: (accessCode: string) => Team | null;
@@ -47,7 +51,15 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     const gameRef = ref(database, `games/${watchedGameId}`);
     const unsubscribe = onValue(gameRef, (snapshot) => {
       const data = snapshot.val();
-      setCurrentGame(data ? { ...data, date: new Date(data.date) } : null);
+      // Firebase Realtime Database sparar inte tomma arrayer - de blir undefined vid läsning,
+      // så vi normaliserar tillbaka till [] här, på det enda stället data kommer in i appen.
+      setCurrentGame(data ? {
+        ...data,
+        date: new Date(data.date),
+        teams: data.teams || [],
+        bars: data.bars || [],
+        matches: data.matches || []
+      } : null);
     });
 
     return () => unsubscribe();
@@ -142,6 +154,70 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const joinTeam = async (teamId: string, playerName: string) => {
+    if (!currentGame) return;
+
+    const team = currentGame.teams.find(t => t.id === teamId);
+    if (!team) throw new Error('Laget hittades inte');
+    if (team.players.length >= 2) throw new Error('Laget är redan fullt');
+
+    const newPlayer: Player = { id: crypto.randomUUID(), name: playerName };
+    const updatedTeams = currentGame.teams.map(t =>
+      t.id === teamId ? { ...t, players: [...t.players, newPlayer] } : t
+    );
+
+    const gameRef = ref(database, `games/${currentGame.id}`);
+
+    try {
+      await update(gameRef, { teams: updatedTeams });
+    } catch (error) {
+      console.error('Error joining team:', error);
+      throw error;
+    }
+  };
+
+  const removeTeam = async (teamId: string) => {
+    if (!currentGame) return;
+
+    const updatedTeams = currentGame.teams.filter(t => t.id !== teamId);
+    const gameRef = ref(database, `games/${currentGame.id}`);
+
+    try {
+      await update(gameRef, { teams: updatedTeams });
+    } catch (error) {
+      console.error('Error removing team:', error);
+      throw error;
+    }
+  };
+
+  const deleteGame = async () => {
+    if (!currentGame) return;
+
+    try {
+      await remove(ref(database, `games/${currentGame.id}`));
+      localStorage.removeItem(ACTIVE_GAME_KEY);
+      setWatchedGameId(null);
+      setCurrentGame(null);
+      setLoggedInTeam(null);
+    } catch (error) {
+      console.error('Error deleting game:', error);
+      throw error;
+    }
+  };
+
+  const updateEventInfo = async (info: { location: string; eventDate: string; eventTime: string; description: string }) => {
+    if (!currentGame) return;
+
+    const gameRef = ref(database, `games/${currentGame.id}`);
+
+    try {
+      await update(gameRef, info);
+    } catch (error) {
+      console.error('Error updating event info:', error);
+      throw error;
+    }
+  };
+
   const updateAdjustmentRules = async (rules: AdjustmentRule[]) => {
     if (!currentGame) return;
 
@@ -169,11 +245,14 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
   };
 
   const startGame = async () => {
-    if (!currentGame || currentGame.teams.length < 2) return;
+    if (!currentGame) return;
+
+    const fullTeams = currentGame.teams.filter(t => t.players.length === 2);
+    if (fullTeams.length < 2) return;
 
     const gameRef = ref(database, `games/${currentGame.id}`);
 
-    const matches = generateMatches(currentGame.teams, currentGame.bars, currentGame.totalRounds);
+    const matches = generateMatches(fullTeams, currentGame.bars, currentGame.totalRounds);
 
     await update(gameRef, {
       status: 'active',
@@ -224,8 +303,12 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
       addTeam,
       addScore,
       addBar,
+      joinTeam,
+      removeTeam,
+      deleteGame,
       updateAdjustmentRules,
       updateTotalRounds,
+      updateEventInfo,
       startGame,
       getLeaderboard,
       loginTeam,

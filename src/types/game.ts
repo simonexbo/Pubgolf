@@ -1,7 +1,6 @@
 export interface Player {
   id: string;
   name: string;
-  handicap: number;
 }
 
 export interface Team {
@@ -54,6 +53,10 @@ export interface Game {
   currentRound: number;
   adjustmentRules?: AdjustmentRule[];
   totalRounds?: number;
+  location?: string;
+  eventDate?: string;
+  eventTime?: string;
+  description?: string;
 }
 
 export interface Hole {

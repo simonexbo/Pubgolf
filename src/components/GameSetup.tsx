@@ -2,14 +2,13 @@
 
 import { useState } from 'react';
 import { useGame } from '@/context/GameContext';
-import { Team, Bar } from '@/types/game';
+import { Bar } from '@/types/game';
 import AdminRulesEditor from '@/components/AdminRulesEditor';
+import AdminEventInfoEditor from '@/components/AdminEventInfoEditor';
+import AdminInvite from '@/components/AdminInvite';
 
 export default function GameSetup() {
-  const { currentGame, createGame, addTeam, addBar, startGame } = useGame();
-  const [teamName, setTeamName] = useState('');
-  const [player1Name, setPlayer1Name] = useState('');
-  const [player2Name, setPlayer2Name] = useState('');
+  const { currentGame, createGame, addBar, startGame, removeTeam, deleteGame } = useGame();
   const [barName, setBarName] = useState('');
   const [barLocation, setBarLocation] = useState('');
   const [barDrink, setBarDrink] = useState('');
@@ -26,45 +25,6 @@ export default function GameSetup() {
       setError('Kunde inte skapa spelet. Försök igen.');
     } finally {
       setIsCreating(false);
-    }
-  };
-
-  const handleAddTeam = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-
-    if (!currentGame) {
-      setError('Inget aktivt spel hittades');
-      return;
-    }
-
-    const newTeam: Team = {
-      id: crypto.randomUUID(),
-      name: teamName,
-      accessCode: Math.random().toString(36).substring(2, 8).toUpperCase(),
-      players: [
-        {
-          id: crypto.randomUUID(),
-          name: player1Name,
-          handicap: 0
-        },
-        {
-          id: crypto.randomUUID(),
-          name: player2Name,
-          handicap: 0
-        }
-      ]
-    };
-
-    try {
-      await addTeam(newTeam);
-      // Clear form
-      setTeamName('');
-      setPlayer1Name('');
-      setPlayer2Name('');
-    } catch (error) {
-      console.error('Error adding team:', error);
-      setError('Kunde inte lägga till laget. Försök igen.');
     }
   };
 
@@ -97,6 +57,33 @@ export default function GameSetup() {
     }
   };
 
+  const handleDeleteGame = async () => {
+    if (!currentGame) return;
+    const confirmed = window.confirm(
+      `Ta bort spelet "${currentGame.id}" permanent? Alla anmälda lag, barer och regler för detta spel raderas och går inte att återställa.`
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteGame();
+    } catch (error) {
+      console.error('Error deleting game:', error);
+      setError('Kunde inte ta bort spelet. Försök igen.');
+    }
+  };
+
+  const handleRemoveTeam = async (teamId: string, teamName: string) => {
+    const confirmed = window.confirm(`Ta bort laget "${teamName}"?`);
+    if (!confirmed) return;
+
+    try {
+      await removeTeam(teamId);
+    } catch (error) {
+      console.error('Error removing team:', error);
+      setError('Kunde inte ta bort laget. Försök igen.');
+    }
+  };
+
   const handleStartGame = async () => {
     setError(null);
 
@@ -105,10 +92,10 @@ export default function GameSetup() {
       return;
     }
 
-    const teams = currentGame.teams || [];
+    const fullTeams = (currentGame.teams || []).filter(t => t.players.length === 2);
     const bars = currentGame.bars || [];
 
-    if (teams.length >= 2 && bars.length > 0) {
+    if (fullTeams.length >= 2 && bars.length > 0) {
       try {
         await startGame();
       } catch (error) {
@@ -140,75 +127,34 @@ export default function GameSetup() {
 
   const teams = currentGame.teams || [];
   const bars = currentGame.bars || [];
+  const fullTeams = teams.filter(t => t.players.length === 2);
+  const waitingTeams = teams.filter(t => t.players.length < 2);
 
   return (
     <div className="bg-white rounded-lg shadow p-6">
-      <h2 className="text-2xl font-bold mb-6">Skapa Lag och Barer</h2>
-      
+      <h2 className="text-2xl font-bold mb-6">Spelinställningar</h2>
+
       {error && (
         <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
           {error}
         </div>
       )}
-      
-      <p className="text-sm text-gray-500 mb-4">Spel-ID: {currentGame.id}</p>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Team Form */}
-        <div>
-          <h3 className="text-xl font-bold mb-4">Lägg till Lag</h3>
-          <form onSubmit={handleAddTeam} className="space-y-4">
-            <div>
-              <label htmlFor="teamName" className="block text-sm font-medium text-gray-700">
-                Lagnamn
-              </label>
-              <input
-                type="text"
-                id="teamName"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
+      <div className="flex items-center justify-between mb-4">
+        <p className="text-sm text-gray-500">Spel-ID: {currentGame.id}</p>
+        <button
+          type="button"
+          onClick={handleDeleteGame}
+          className="text-sm text-red-600 hover:text-red-800 underline"
+        >
+          Ta bort spel
+        </button>
+      </div>
 
-            <div>
-              <label htmlFor="player1Name" className="block text-sm font-medium text-gray-700">
-                Spelare 1
-              </label>
-              <input
-                type="text"
-                id="player1Name"
-                value={player1Name}
-                onChange={(e) => setPlayer1Name(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
+      <AdminEventInfoEditor />
+      <AdminInvite />
 
-            <div>
-              <label htmlFor="player2Name" className="block text-sm font-medium text-gray-700">
-                Spelare 2
-              </label>
-              <input
-                type="text"
-                id="player2Name"
-                value={player2Name}
-                onChange={(e) => setPlayer2Name(e.target.value)}
-                className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              className="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-            >
-              Lägg till Lag
-            </button>
-          </form>
-        </div>
-
+      <div className="mt-8">
         {/* Bar Form */}
         <div>
           <h3 className="text-xl font-bold mb-4">Lägg till Bar</h3>
@@ -268,8 +214,13 @@ export default function GameSetup() {
       <AdminRulesEditor />
 
       {/* Start Game Button */}
-      {teams.length >= 2 && bars.length > 0 && (
-        <div className="mt-8">
+      {waitingTeams.length > 0 && (
+        <p className="text-sm text-amber-600 mt-8">
+          {waitingTeams.length} lag väntar på en till spelare innan spelet kan starta.
+        </p>
+      )}
+      {fullTeams.length >= 2 && bars.length > 0 && (
+        <div className="mt-4">
           <button
             onClick={handleStartGame}
             className="w-full bg-green-600 text-white py-3 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 text-lg font-semibold"
@@ -286,11 +237,20 @@ export default function GameSetup() {
             {/* Teams List */}
             {teams.length > 0 && (
               <div>
-                <h3 className="text-xl font-bold mb-4">Tillagda Lag</h3>
+                <h3 className="text-xl font-bold mb-4">Anmälda Lag</h3>
                 <div className="space-y-4">
                   {teams.map((team) => (
                     <div key={team.id} className="border rounded-lg p-4">
-                      <h4 className="font-semibold text-lg">{team.name}</h4>
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-lg">{team.name}</h4>
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveTeam(team.id, team.name)}
+                          className="text-xs text-red-500 hover:text-red-700"
+                        >
+                          Ta bort
+                        </button>
+                      </div>
                       <p className="text-sm text-gray-600">Åtkomstkod: {team.accessCode}</p>
                       <div className="mt-2">
                         <p className="font-medium">Spelare:</p>
@@ -299,6 +259,9 @@ export default function GameSetup() {
                             <li key={player.id}>{player.name}</li>
                           ))}
                         </ul>
+                        {team.players.length < 2 && (
+                          <p className="text-xs text-amber-600 mt-1">Väntar på en till spelare</p>
+                        )}
                       </div>
                     </div>
                   ))}
