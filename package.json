@@ -18,8 +18,7 @@
     "react-dom": "latest"
   },
   "devDependencies": {
-    "@tailwindcss/postcss7-compat": "^2.2.17",
-    "autoprefixer": "^10.4.21",
+    "@tailwindcss/postcss": "^4.1.8",
     "postcss": "^8.5.4",
     "tailwindcss": "^4.1.8",
     "typescript": "latest"
